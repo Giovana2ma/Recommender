@@ -22,36 +22,46 @@ def get_keys(rates,targets):
 def process_data(data,users,items):
     '''
     Processa os dados de entrada para substituir identificadores de usuários e itens por índices numéricos.
-
     '''
     user_map = {v: k for k, v in users.items()}
     item_map = {v: k for k, v in items.items()}
 
-    data['UserId'] = data['UserId'].map(user_map).values.astype(int)
+    if 'UserId' in data.columns:
+        data['UserId'] = data['UserId'].map(user_map).values.astype(int)
     data['ItemId'] = data['ItemId'].map(item_map).values.astype(int)
 
 
     return data
 
-def filter_by_time(data):
-    # Convert 'Timestamp' to datetime if not already
-    data['Timestamp'] = pd.to_datetime(data['Timestamp'])
+def process_files(ratings_file, targets_file,content_file):
+    rates = read_data(ratings_file)
+    target = read_data(targets_file)
+    content = read_data(content_file)
 
-    # Keep only the last rows for each (userid, itemid) based on Timestamp
-    filtered = data.sort_values('Timestamp').groupby(['UserId', 'ItemId']).last().reset_index()
-    return filtered
+    # Processamento dos dados iniciais
+    users,items = get_keys(rates,target)
+    ratings = process_data(rates,users,items)
+    targets = process_data(target,users,items)
+    contents = process_data(content,users,items)
+
+    num_users = len(users)
+    num_items = len(items)
+
+    return target,users,items,ratings,targets,num_users,num_items,contents
 
 def ranking(rates,users,items):
     user_map = {k: v for k, v in users.items()}
     item_map = {k: v for k, v in items.items()}
 
-    rates['Rating'] = rates.groupby('UserId')['Rating'].transform(sorted)
-
-
     rates['UserId'] = rates['UserId'].map(user_map)
     rates['ItemId'] = rates['ItemId'].map(item_map)
 
+    rates = rates.groupby('UserId', group_keys=False).apply(
+    lambda group: group.iloc[(-group['Rating']).argsort()]
+    )
     return rates
+
+
 
 def relevance_grade(rating):
     if rating == 10:
@@ -106,6 +116,9 @@ def split_data(data):
     test_data = shuffled_data.iloc[split_index:]
 
     return train_data,test_data
+
+def rmse(pred,rate):
+        return np.sqrt(np.mean(np.square(rate - pred)))
 
 # def optimize(users,items,data):
 #     '''

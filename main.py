@@ -8,19 +8,10 @@ def main():
 
     # Leitura dos arquivos de entrada
     ratings_file = sys.argv[1]
-    targets_file = sys.argv[2]
+    content_file = sys.argv[2]
+    targets_file = sys.argv[3]
 
-    rates = read_data(ratings_file)
-    target = read_data(targets_file)
-
-    # Processamento dos dados iniciais
-    users,items = get_keys(rates,target)
-    rates = filter_by_time(rates)
-    ratings = process_data(rates,users,items)
-    targets = process_data(target,users,items)
-
-    num_users = len(users)
-    num_items = len(items)
+    target,users, items, ratings, targets, num_users, num_items,contents = process_files(ratings_file, targets_file,content_file)
     
     n_factors = 10
     n_epochs = 30
@@ -37,9 +28,10 @@ def main():
     # target = target.drop(['UserId','ItemId'],axis=1)
 
     target = ranking(target,users,items)
-    target.drop('Rating',axis = 1)
+    target = target.drop('Rating',axis = 1)
 
     target.to_csv('predictions.csv',index=False)
+
 
 if __name__ == "__main__":
     main()
