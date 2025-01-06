@@ -2,7 +2,7 @@ import numpy as np
 from utils import *
 from funksvd import *
 import sys
-
+from rocchio import *
 
 def main():
 
@@ -12,13 +12,37 @@ def main():
     targets_file = sys.argv[3]
 
     target,users, items, ratings, targets, num_users, num_items,contents = process_files(ratings_file, targets_file,content_file)
+    # optimize(num_users,num_items,ratings,contents)
     
     n_factors = 10
     n_epochs = 30
-    lr = 0.001
+    lr = 0.005
     alpha = 0.1
 
-    model = Funksvd(ratings,num_users,num_items,n_factors,n_epochs,lr,alpha)
+    # contents['imdbRating'] = pd.to_numeric(contents['imdbRating'], errors='coerce')
+    # contents['imdbVotes'] = pd.to_numeric(contents['imdbVotes'].str.replace(',', ''), errors='coerce')
+
+    # C = contents['imdbRating'].mean()
+
+    # # Fill missing ratings with the average and missing votes with 0
+    # contents['imdbRating'].fillna(C, inplace=True)
+    # contents['imdbVotes'].fillna(0, inplace=True)
+
+    # # Calculate the 60th percentile of votes
+    # m = contents['imdbVotes'].quantile(0.8)
+
+    # # Calculate the weighted IMDb score
+    # contents['weighted_imdb_score'] = (
+    #     (contents['imdbVotes'] / (contents['imdbVotes'] + m)) * contents['imdbRating'] +
+    #     (m / (contents['imdbVotes'] + m)) * C
+    # )
+    content = extract_info(contents)
+    recomender = Rocchio(content,ratings,contents['imdbVotes'])
+    recomender.tfidf()
+    recomender.user_vector()
+    
+
+    model = Funksvd(ratings,contents['imdbVotes'],num_users,num_items,n_factors,n_epochs,lr,alpha)
     model.run_sgd()
 
     # Predição das avaliações para o arquivo "targets.csv"

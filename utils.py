@@ -1,18 +1,22 @@
 import numpy as np
 import pandas as pd
 from funksvd import *
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
 
 
 def read_data(file):
     rate = pd.read_json(file,lines=True) if file[-5:] == 'jsonl' else pd.read_csv(file)
     return rate
 
-def get_keys(rates,targets):
+def get_keys(rates,content):
     '''
     Constroe uma chave única para cada usuário e item
     '''
-    unique_users = set(rates['UserId']).union(set(targets['UserId']))
-    unique_items = set(rates['ItemId']).union(set(targets['ItemId']))
+    unique_users = set(rates['UserId'])
+    unique_items = content['ItemId']
 
     users = {idx:user_id  for idx, user_id in enumerate(unique_users)}
     items = {idx: item_id for idx, item_id in enumerate(unique_items)}
@@ -39,7 +43,7 @@ def process_files(ratings_file, targets_file,content_file):
     content = read_data(content_file)
 
     # Processamento dos dados iniciais
-    users,items = get_keys(rates,target)
+    users,items = get_keys(rates,content)
     ratings = process_data(rates,users,items)
     targets = process_data(target,users,items)
     contents = process_data(content,users,items)
@@ -48,6 +52,48 @@ def process_files(ratings_file, targets_file,content_file):
     num_items = len(items)
 
     return target,users,items,ratings,targets,num_users,num_items,contents
+
+def preprocess_document(doc):
+    # nltk.download('stopwords')
+    # nltk.download('wordnet')
+    # nltk.download('punkt')
+    # nltk.download('punkt_tab')
+    """
+    Preprocess a document 
+    """
+    # Lowercase the document
+    doc = doc.lower()
+    
+    # Remove special characters and numbers
+    doc = re.sub(r"[^a-zA-Z\s]", "", doc)
+    
+    # Tokenize the document
+    tokens = nltk.word_tokenize(doc)
+    
+    # Remove stopwords
+    stop_words = set(stopwords.words('english'))
+    tokens = [word for word in tokens if word not in stop_words]
+    
+    # Lemmatize the tokens
+    lemmatizer = WordNetLemmatizer()
+    tokens = [lemmatizer.lemmatize(word) for word in tokens]
+    
+    # Join the tokens back into a single string
+    preprocessed_doc = " ".join(tokens)
+    return preprocessed_doc
+
+def extract_info(content_data):
+    info = content_data.apply(lambda x: ' '.join([
+        preprocess_document(x['Plot']),
+        preprocess_document(x['Title']),
+        preprocess_document(x['Genre']),
+        preprocess_document(x['Director']),
+        preprocess_document(x['Writer']),
+        preprocess_document(x['Actors']),
+        preprocess_document(x['Language']),
+        preprocess_document(x['Country'])
+    ]), axis=1)
+    return info
 
 def ranking(rates,users,items):
     user_map = {k: v for k, v in users.items()}
@@ -60,6 +106,7 @@ def ranking(rates,users,items):
     lambda group: group.iloc[(-group['Rating']).argsort()]
     )
     return rates
+
 
 
 
@@ -120,38 +167,38 @@ def split_data(data):
 def rmse(pred,rate):
         return np.sqrt(np.mean(np.square(rate - pred)))
 
-# def optimize(users,items,data):
-#     '''
-#     Executa o algoritmo de FunkSvd para a busca dos melhores paramêtros
-#     '''
+def optimize(num_users,num_items,data,content):
+    '''
+    Executa o algoritmo de FunkSvd para a busca dos melhores paramêtros
+    '''
     
-#     n_factors_list = range(10, 201, 30)  
-#     n_epochs_list = range(10, 51, 10)    
-#     lr_list = [0.001, 0.005, 0.01]       
-#     reg_list = [0.01, 0.05, 0.1]  
-#     best_params = {}
-#     best_rmse = np.float('inf')
+    n_factors_list = range(10, 201, 30)  
+    n_epochs_list = range(10, 51, 10)    
+    lr_list = [0.001, 0.005, 0.01]       
+    reg_list = [0.01, 0.05, 0.1]  
+    best_params = {}
+    best_rmse = float('inf')
 
-#     train_data,test_data = split_data(data)
+    train_data,test_data = split_data(data)
 
-#     for n_factors in n_factors_list:
-#         for n_epochs in n_epochs_list:
-#             for lr in lr_list:
-#                 for reg in reg_list:
-#                     model = Funksvd(train_data,users,items,n_factors,n_epochs,lr,reg)
-#                     model.run_sgd()  
+    for n_factors in n_factors_list:
+        for n_epochs in n_epochs_list:
+            for lr in lr_list:
+                for reg in reg_list:
+                    model = Funksvd(train_data,content['imdbVotes'],num_users,num_items,n_factors,n_epochs,lr,reg)
+                    model.run_sgd()  
                     
-#                     y_pred = model.recommend(test_data)
-#                     y_true = test_data['Rating']
+                    y_pred = model.recommend(test_data)
+                    y_true = test_data['Rating']
 
-#                     current_rmse = model.rmse(y_pred,y_true)
+                    current_rmse = rmse(y_pred,y_true)
 
-#                     if current_rmse < best_rmse:
-#                         best_rmse = current_rmse
-#                         best_params = {'n_factors': n_factors, 'n_epochs': n_epochs, 'lr': lr, 'reg': reg}
+                    if current_rmse < best_rmse:
+                        best_rmse = current_rmse
+                        best_params = {'n_factors': n_factors, 'n_epochs': n_epochs, 'lr': lr, 'reg': reg}
 
-#                     print(f"Params: n_factors={n_factors}, n_epochs={n_epochs}, lr={lr}, reg={reg} -> RMSE: {current_rmse:.4f}")
+                    print(f"Params: n_factors={n_factors}, n_epochs={n_epochs}, lr={lr}, reg={reg} -> RMSE: {current_rmse:.4f}")
 
-#     print(f"\nBest Parameters: {best_params}, Best RMSE: {best_rmse:.4f}")
-#     return best_params, best_rmse
+    print(f"\nBest Parameters: {best_params}, Best RMSE: {best_rmse:.4f}")
+    return best_params, best_rmse
     

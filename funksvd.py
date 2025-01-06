@@ -2,13 +2,14 @@ import numpy as np
 from utils import *
 
 class Funksvd:
-    def __init__(self,ratings,num_users,num_items,n_factors,n_epochs,lr,alpha):
+    def __init__(self,ratings,weight,num_users,num_items,n_factors,n_epochs,lr,alpha):
         self.n_factors = n_factors
         self.n_epochs = n_epochs
         self.lr = lr
         self.alpha = alpha # Constante de regularizacao
 
         self.ratings = ratings
+        self.weight = weight
         self.num_users = num_users
         self.num_items = num_items
 
@@ -49,9 +50,10 @@ class Funksvd:
         pred  = self.global_mean
         pred += self.bu[user] + self.bi[item]
         pred += np.dot(self.p[user],self.q[item])
+        # weight = int(self.weight[item].replace(',', '')) if self.weight[item] != "N/A" else 3.0
 
         # Garante que a predição fique dentro do intervalo 1-5
-        return max(0.0, min(10.0, pred))
+        return pred
 
     def run_iteration_(self):
         '''
@@ -83,13 +85,31 @@ class Funksvd:
         for _ in range(self.n_epochs):
             self.shuffle()
             self.run_iteration_()
+
+    def predict_weigth(self,user,item):
+        pred  = self.global_mean
+        pred += self.bu[user] + self.bi[item]
+        pred += np.dot(self.p[user],self.q[item])
+        weight = float(self.weight[item].replace(',', '')) if self.weight[item] != "N/A" else 3.0
+
+        # Garante que a predição fique dentro do intervalo 1-5
+        return pred*weight
     
     def recommend(self, data):
         '''
         data: pares <usuario,item> 
         Prevê a avaliação.
         '''
-        predictions = np.array([self.predict(user, item) for user, item in zip(data['UserId'], data['ItemId'])])
+        predictions = np.array([self.predict_weigth(user, item) for user, item in zip(data['UserId'], data['ItemId'])])
+        return predictions  
+    
+    def get_initial_predictions(self,targets):
+        predictions = {}
+        for user in targets['UserId']:
+            for item in targets['ItemId']:
+                print(user, item)
+                pred = self.predict(user, item)
+                predictions[user].append((item, pred))
         return predictions
     
     

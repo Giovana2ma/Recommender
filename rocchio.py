@@ -9,9 +9,14 @@ import sys
 
 class Rocchio:
 
-    def __init__(self,content,ratings):
+    def __init__(self,content,ratings,weight,alpha,beta,gamma):
         self.content = content 
         self.ratings = ratings 
+        self.weight = weight 
+        self.alpha = alpha 
+        self.beta = beta 
+        self.gamma = gamma 
+
 
     def tfidf(self):
         vectorizer = TfidfVectorizer()
@@ -50,8 +55,8 @@ class Rocchio:
         # Calcula a similaridade do cosseno entre o vetor do usuário e o vetor do item
         pred = cosine_similarity(user_vector.reshape(1, -1), item_vector.reshape(1, -1))
         
-        # Escala a predição para o intervalo desejado (aqui multiplicado por 10)
-        pred_scaled = pred[0][0] * 10
+        weight = float(self.weight[item_index].replace(',', '')) if self.weight[item_index] != "N/A" else 3.0
+        pred_scaled = pred[0][0] * weight
         
         return pred_scaled
     
@@ -63,19 +68,56 @@ class Rocchio:
         predictions = np.array([self.predict(user, item) for user, item in zip(data['UserId'], data['ItemId'])])
         return predictions
     
-ratings_file = sys.argv[1]
-content_file = sys.argv[2]
-targets_file = sys.argv[3]
+    def update_user_profiles(self, user_feedback):
+        for user_id, feedback in user_feedback.items():
+            relevant_items = feedback['relevant']
+            non_relevant_items = feedback['non_relevant']
+            terms = self.tfidf_matrix.T
 
-target,users, items, ratings, targets, num_users, num_items,contents = process_files(ratings_file, targets_file,content_file)
-plot = contents['Plot']
+            # Relevant items' vectors
+            relevant_vectors = terms[:, relevant_items].sum(axis=1)
+            # Non-relevant items' vectors
+            non_relevant_vectors = terms[:, non_relevant_items].sum(axis=1)
 
-recomender = Rocchio(plot,ratings)
-recomender.tfidf()
-recomender.user_vector()
-predictions = recomender.recommend(targets)
-target['Rating'] = predictions
-target = ranking(target,users,items)
-target = target.drop('Rating',axis = 1)
+            # Update user vector using Rocchio's formula
+            self.user_vectors[user_id] = (
+                self.alpha * self.user_vectors[user_id]
+                + self.beta * relevant_vectors
+                - self.gamma * non_relevant_vectors
+            )
+    
+# ratings_file = sys.argv[1]
+# content_file = sys.argv[2]
+# targets_file = sys.argv[3]
 
-target.to_csv('predictionss.csv',index=False)
+# target,users, items, ratings, targets, num_users, num_items,contents = process_files(ratings_file, targets_file,content_file)
+# Convert 'imdbRating' and 'imdbVotes' to numeric, coercing errors to NaN
+# contents['imdbRating'] = pd.to_numeric(contents['imdbRating'], errors='coerce')
+# contents['imdbVotes'] = pd.to_numeric(contents['imdbVotes'].str.replace(',', ''), errors='coerce')
+
+# # Calculate average rating across all items
+# C = contents['imdbRating'].mean()
+
+# # Fill missing ratings with the average and missing votes with 0
+# contents['imdbRating'].fillna(C, inplace=True)
+# contents['imdbVotes'].fillna(0, inplace=True)
+
+# # Calculate the 60th percentile of votes
+# m = contents['imdbVotes'].quantile(0.6)
+
+# # Calculate the weighted IMDb score
+# contents['weighted_imdb_score'] = (
+#     (contents['imdbVotes'] / (contents['imdbVotes'] + m)) * contents['imdbRating'] +
+#     (m / (contents['imdbVotes'] + m)) * C
+# )
+# print(contents['weighted_imdb_score'] )
+# content = extract_info(contents)
+# recomender = Rocchio(content,ratings,contents['imdbVotes'])
+# recomender.tfidf()
+# recomender.user_vector()
+# predictions = recomender.recommend(targets)
+# target['Rating'] = predictions
+# target = ranking(target,users,items)
+# target = target.drop('Rating',axis = 1)
+
+# target.to_csv('predictionss.csv',index=False)
