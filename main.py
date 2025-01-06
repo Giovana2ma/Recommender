@@ -4,6 +4,7 @@ from funksvd import *
 import sys
 from rocchio import *
 
+
 def main():
 
     # Leitura dos arquivos de entrada
@@ -11,9 +12,11 @@ def main():
     content_file = sys.argv[2]
     targets_file = sys.argv[3]
 
-    target,users, items, ratings, targets, num_users, num_items,contents = process_files(ratings_file, targets_file,content_file)
+    target, users, items, ratings, targets, num_users, num_items, contents = (
+        load_and_index_datasets(ratings_file, targets_file, content_file)
+    )
     # optimize(num_users,num_items,ratings,contents)
-    
+
     n_factors = 10
     n_epochs = 30
     lr = 0.005
@@ -36,25 +39,33 @@ def main():
     #     (contents['imdbVotes'] / (contents['imdbVotes'] + m)) * contents['imdbRating'] +
     #     (m / (contents['imdbVotes'] + m)) * C
     # )
-    content = extract_info(contents)
-    recomender = Rocchio(content,ratings,contents['imdbVotes'])
+    content = combine_textual_info(contents)
+    recomender = Rocchio(content, ratings, contents["imdbVotes"])
     recomender.tfidf()
     recomender.user_vector()
-    
 
-    model = Funksvd(ratings,contents['imdbVotes'],num_users,num_items,n_factors,n_epochs,lr,alpha)
+    model = Funksvd(
+        ratings,
+        contents["imdbVotes"],
+        num_users,
+        num_items,
+        n_factors,
+        n_epochs,
+        lr,
+        alpha,
+    )
     model.run_sgd()
 
     # Predição das avaliações para o arquivo "targets.csv"
     predictions = model.recommend(targets)
     print(predictions)
-    target['Rating'] = predictions
+    target["Rating"] = predictions
     # target = target.drop(['UserId','ItemId'],axis=1)
 
-    target = ranking(target,users,items)
-    target = target.drop('Rating',axis = 1)
+    target = ranking(target, users, items)
+    target = target.drop("Rating", axis=1)
 
-    target.to_csv('predictions.csv',index=False)
+    target.to_csv("predictions.csv", index=False)
 
 
 if __name__ == "__main__":
