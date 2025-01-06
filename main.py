@@ -42,7 +42,7 @@ def main():
     content = combine_textual_info(contents)
     recomender = Rocchio(content, ratings, contents["imdbVotes"])
     recomender.tfidf()
-    recomender.user_vector()
+    recomender.compute_user_representations()
 
     model = Funksvd(
         ratings,
