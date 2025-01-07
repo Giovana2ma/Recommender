@@ -8,13 +8,10 @@ import sys
 
 class Rocchio:
 
-    def __init__(self, content, ratings, weight, alpha, beta, gamma):
+    def __init__(self, content, ratings, weight):
         self.content = content
         self.ratings = ratings
         self.weight = weight
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
 
     def tfidf(self):
         """
@@ -73,24 +70,3 @@ class Rocchio:
             ]
         )
         return predictions
-
-    def update_user_profiles(self, user_feedback):
-        """
-        Update the user profiles using Rocchio's algorithm.
-        """
-        for user_id, feedback in user_feedback.items():
-            relevant_items = feedback["relevant"]
-            non_relevant_items = feedback["non_relevant"]
-            terms = self.tfidf_matrix.T
-
-            # Relevant items' vectors
-            relevant_vectors = terms[:, relevant_items].sum(axis=1)
-            # Non-relevant items' vectors
-            non_relevant_vectors = terms[:, non_relevant_items].sum(axis=1)
-
-            # Update user vector using Rocchio's formula
-            self.user_vectors[user_id] = (
-                self.alpha * self.user_vectors[user_id]
-                + self.beta * relevant_vectors
-                - self.gamma * non_relevant_vectors
-            )

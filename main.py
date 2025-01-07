@@ -1,4 +1,3 @@
-import numpy as np
 from utils import *
 from funksvd import *
 import sys
@@ -14,36 +13,49 @@ def main():
         load_and_index_datasets(ratings_file, targets_file, content_file)
     )
 
+    reverse_users = {v: k for k, v in users.items()}
+    reverse_items = {v: k for k, v in items.items()}
+
     n_factors = 10
     n_epochs = 30
     lr = 0.005
     alpha = 0.1
 
     content = combine_textual_info(contents)
-    recomender = Rocchio(content, ratings, contents["imdbVotes"])
-    recomender.tfidf()
-    recomender.compute_user_representations()
+    rocchio = Rocchio(content, ratings, contents["imdbVotes"])
+    rocchio.tfidf()
+    rocchio.compute_user_representations()
 
-    model = Funksvd(
-        ratings,
-        contents["imdbVotes"],
-        num_users,
-        num_items,
-        n_factors,
-        n_epochs,
-        lr,
-        alpha,
+    # svd = Funksvd(
+    #     ratings,
+    #     contents["imdbVotes"],
+    #     num_users,
+    #     num_items,
+    #     n_factors,
+    #     n_epochs,
+    #     lr,
+    #     alpha,
+    # )
+    # svd.run_sgd()
+
+    # user_ratings = {}
+    # for user in users:
+    #     user_ratings[user] = len(ratings[ratings["UserId"] == user])
+
+    targets["Rocchio"] = targets.apply(
+        lambda x: rocchio.predict(x["UserId"], x["ItemId"]), axis=1
     )
-    model.run_sgd()
 
-    predictions = model.generate_predictions(targets)
-    print(predictions)
-    target["Rating"] = predictions
+    # targets["FunkSVD"] = targets.apply(
+    #     lambda x: svd.weighted_prediction(x["UserId"], x["ItemId"]), axis=1
+    # )
 
-    target = ranking(target, users, items)
-    target = target.drop("Rating", axis=1)
+    targets["UserId"] = targets["UserId"].map(reverse_users)
+    targets["ItemId"] = targets["ItemId"].map(reverse_items)
 
-    target.to_csv("predictions.csv", index=False)
+    targets = targets.sort_values(["UserId", "Rocchio"])
+
+    targets[["UserId", "ItemId"]].to_csv("predictions.csv", index=False)
 
 
 if __name__ == "__main__":
