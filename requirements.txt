@@ -8,7 +8,9 @@ pytz==2024.2
 regex==2024.11.6
 scikit-learn==1.6.0
 scipy==1.15.0
+setuptools==75.1.0
 six==1.17.0
 threadpoolctl==3.5.0
 tqdm==4.67.1
 tzdata==2024.2
+wheel==0.44.0

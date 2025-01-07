@@ -1,3 +1,5 @@
+import random
+random.seed(42)
 from utils import *
 from funksvd import *
 import sys
