@@ -8,6 +8,9 @@ The system uses FunkSVD, a matrix factorization approach to capture latent featu
 
 ## Usage  
 $ python3 -m venv rc2
+
 $ source rc2/bin/activate
+
 $ pip3 install -r /path/to/requirements.txt
+
 $ python3 main.py ratings.jsonl content.jsonl targets.csv
